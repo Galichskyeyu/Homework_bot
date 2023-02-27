@@ -1,15 +1,14 @@
 import json
-import time
-from dotenv import load_dotenv
-import os
-import telegram
-import requests
 import logging
+import os
+import time
 from http import HTTPStatus
-from exception import (IsNot200Error,
-                       ApiError,
-                       JSONDecoderError)
 
+import requests
+import telegram
+from dotenv import load_dotenv
+
+from exception import ApiError, IsNot200Error, JSONDecoderError
 
 load_dotenv()
 
@@ -28,35 +27,25 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s, %(levelname)s, %(message)s'
-)
-handler = logging.StreamHandler()
-
 
 def check_tokens():
     """Функция проверяет доступность переменных окружения."""
-    is_check_tokens = all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
-    if not is_check_tokens:
-        message_error = 'Отсутствует обязательная переменная окружения'
-        logger.critical(message_error)
-        return False
-    return True
+    logging.critical('Отсутствует обязательная переменная окружения')
+    return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
 
 
 def send_message(bot, message):
     """Функция отправляет сообщение в Telegram чат."""
     try:
         message_info = f'Сообщение готово к отправке: {message}'
-        logger.info(message_info)
+        logging.info(message_info)
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        message_info = f'Сообщение отправлено: {message}'
-        logger.debug(message_info)
     except telegram.TelegramError:
         message_error = f'Сообщение не удалось отправить: {message}'
-        logger.error(message_error)
+        logging.error(message_error)
+    else:
+        message_info = f'Сообщение отправлено: {message}'
+        logging.debug(message_info)
 
 
 def get_api_answer(current_timestamp):
@@ -69,10 +58,9 @@ def get_api_answer(current_timestamp):
             headers=HEADERS,
             params=params
         )
-        status_code = homework.status_code
-        if status_code != HTTPStatus.OK:
+        if homework.status_code != HTTPStatus.OK:
             message_error = (f'API {ENDPOINT} недоступен, '
-                             f'код ошибки {status_code}')
+                             f'код ошибки {homework.status_code}')
             raise IsNot200Error(message_error)
         return homework.json()
     except requests.exceptions.RequestException as error_request:
@@ -88,9 +76,7 @@ def check_response(response):
     try:
         response['homeworks']
     except KeyError:
-        message = 'В ответе отсутствуют необходимые ключи'
-        logger.error(message)
-        raise KeyError(message)
+        raise KeyError('В ответе отсутствуют необходимые ключи')
     if not response['homeworks']:
         return []
     if isinstance(response['homeworks'], list):
@@ -131,10 +117,12 @@ def main():
                 if homework_status is not None:
                     send_message(bot, homework_status)
             else:
-                logger.debug('Нет нового статуса')
+                message = 'Статус работы не изменился'
+                send_message(bot, message)
+                logging.debug('Нет нового статуса')
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            logger.error(message)
+            logging.error(message)
             if message != last_error:
                 last_error = message
                 send_message(bot, message)
@@ -143,4 +131,10 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s, %(message)s, %(lineno)d, %(name)s',
+        filemode='w',
+        filename='program.log',
+        level=logging.INFO,
+    )
     main()
