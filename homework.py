@@ -30,7 +30,6 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Функция проверяет доступность переменных окружения."""
-    logging.critical('Отсутствует обязательная переменная окружения')
     return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
 
 
@@ -75,13 +74,20 @@ def check_response(response):
     """Функция проверяет ответ API на соответствие документации."""
     try:
         response['homeworks']
-    except KeyError:
-        raise KeyError('В ответе отсутствуют необходимые ключи')
-    if not response['homeworks']:
-        return []
-    if isinstance(response['homeworks'], list):
-        return response['homeworks']
-    raise TypeError('Некорректное значение в ответе у домашней работы')
+    except KeyError as error:
+        message = f'{error}: В ответе отсутствуют необходимые ключи'
+        raise KeyError(message)
+    if response['homeworks'] == []:
+        return {}
+    if type(response) != dict:
+        response_type = type(response)
+        message = f'Ответ пришел в некорректном формате: {response_type}'
+        raise TypeError(message)
+    homework = response.get('homeworks')
+    if type(homework) != list:
+        message = 'Некорректное значение в ответе у домашней работы'
+        raise TypeError(message)
+    return homework
 
 
 def parse_status(homework):
@@ -102,6 +108,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        logging.critical('Отсутствует обязательная переменная окружения')
         exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     send_message(bot, 'Бот включен')
