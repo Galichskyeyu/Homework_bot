@@ -77,14 +77,17 @@ def check_response(response):
     except KeyError as error:
         message = f'{error}: В ответе отсутствуют необходимые ключи'
         raise KeyError(message)
-    if response['homeworks'] == []:
-        return {}
-    if type(response) != dict:
+    try:
+        response['homeworks'] == []
+    except KeyError as error:
+        message = f'{error}: Список пуст'
+        raise KeyError(message)
+    if not isinstance(response, dict):
         response_type = type(response)
         message = f'Ответ пришел в некорректном формате: {response_type}'
         raise TypeError(message)
     homework = response.get('homeworks')
-    if type(homework) != list:
+    if not isinstance(homework, list):
         message = 'Некорректное значение в ответе у домашней работы'
         raise TypeError(message)
     return homework
